@@ -1,0 +1,33 @@
+$kind: http-request
+name: http://localhost:5000/api/laboratory-tests/1
+description: ""
+url: http://localhost:5000/api/laboratory-tests/1
+method: GET
+body:
+  type: json
+  content: "{\r
+
+    \  \"test_number\": \"LAB001\",\r
+
+    \  \"patient_id\": 2,\r
+
+    \  \"doctor_id\": 2,\r
+
+    \  \"test_name\": \"Malaria Test\",\r
+
+    \  \"test_type\": \"Blood Test\",\r
+
+    \  \"sample_type\": \"Blood\",\r
+
+    \  \"test_date\": \"2026-10-07\",\r
+
+    \  \"result\": \"Positive for malaria parasites\",\r
+
+    \  \"normal_range\": \"Negative\",\r
+
+    \  \"status\": \"Completed\",\r
+
+    \  \"notes\": \"Patient started treatment and advised to return for follow-up\"\r
+
+    }"
+order: 1791527396299
