@@ -36,8 +36,8 @@ function App() {
   }, [route.key]);
 
   return (
-    <div className="min-h-screen bg-[#f5f7f6] text-slate-800 md:flex">
-      <aside className="border-b border-sky-950 bg-sky-950 text-white md:min-h-screen md:w-64 md:shrink-0 md:border-b-0">
+    <div className="min-h-screen bg-[#f5f7f6] text-slate-800 md:flex md:h-screen md:overflow-hidden">
+      <aside className="border-b border-sky-950 bg-sky-950 text-white md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:border-b-0">
         <div className="flex items-center gap-3 px-5 py-5 md:px-7 md:pt-8">
           <span className="grid size-10 place-items-center rounded-xl bg-sky-400 text-lg font-bold text-sky-950">C</span>
           <div>
@@ -63,7 +63,7 @@ function App() {
         </nav>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:px-10">
+      <main className="flex min-w-0 flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:px-10 md:h-screen md:overflow-y-auto">
         <header className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
           <div>
             <h1 className="font-[Manrope] text-2xl font-bold tracking-normal text-slate-900">

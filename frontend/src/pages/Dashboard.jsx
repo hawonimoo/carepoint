@@ -130,7 +130,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <section className="mb-6 flex items-center justify-between gap-4 overflow-hidden rounded-xl bg-sky-900 px-5 py-6 text-white sm:px-7">
+      <section className="mb-6 flex items-center justify-between gap-4 overflow-hidden rounded-xl bg-sky-900 px-5 py-7 text-white sm:px-7 sm:py-8">
         <div>
           <h2 className="font-[Manrope] text-xl font-bold tracking-normal sm:text-2xl">Your clinic, organized.</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-sky-100">
