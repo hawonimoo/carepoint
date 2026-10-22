@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { lookupEndpointsFor } from "../config/resources";
+import { canWrite } from "../auth";
 import {
   EXPIRY_WARNING_DAYS,
   LOW_STOCK_LEVEL,
@@ -63,7 +64,19 @@ function renderCell(column, row, ctx) {
   }
 }
 
-export default function ResourcePage({ resource, startWithNew = false, onStartHandled }) {
+export default function ResourcePage({ resource, role, canCreate: allowCreate, startWithNew = false, onStartHandled }) {
+  const canCreate = Boolean(allowCreate && canWrite(role, resource.key, "create"));
+  const canEdit = canWrite(role, resource.key, "edit");
+  const canDelete = canWrite(role, resource.key, "delete");
+  const formResource = useMemo(() => {
+    if (role === "laboratory_staff" && resource.key === "laboratory") {
+      return { ...resource, fields: resource.fields.filter((field) => ["status", "result", "notes"].includes(field.name)) };
+    }
+    if (role === "accountant" && resource.key === "invoices") {
+      return { ...resource, fields: resource.fields.filter((field) => field.name !== "appointment_id") };
+    }
+    return resource;
+  }, [resource, role]);
   const [rows, setRows] = useState([]);
   const [lookups, setLookups] = useState({});
   const [status, setStatus] = useState({ loading: true, error: "" });
@@ -80,7 +93,7 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
   // Load this module's rows plus anything its dropdowns need
   useEffect(() => {
     let cancelled = false;
-    const lookupEndpoints = lookupEndpointsFor(resource);
+    const lookupEndpoints = canCreate || canEdit ? lookupEndpointsFor(formResource) : [];
 
     Promise.all([
       api.list(resource.endpoint),
@@ -102,7 +115,7 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
     return () => {
       cancelled = true;
     };
-  }, [resource, reloadKey]);
+  }, [resource, formResource, canCreate, canEdit, reloadKey]);
 
   // let the parent drop "/new" from the address bar once the form has opened
   useEffect(() => {
@@ -139,7 +152,7 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
 
     try {
       await api.remove(resource.endpoint, toDelete.id);
-      setNotice(`${resource.singular} deleted.`);
+      setNotice(resource.key === "appointments" ? "Appointment cancelled." : `${resource.singular} deleted.`);
       setToDelete(null);
       reload();
     } catch (err) {
@@ -156,14 +169,14 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
           <h2 className="font-[Manrope] text-lg font-bold tracking-normal text-slate-900">{resource.title}</h2>
           <p className="mt-1 text-sm text-slate-500">{resource.description}</p>
         </div>
-        <button
+        {canCreate && <button
           type="button"
           className="shrink-0 rounded-lg bg-sky-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-900 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => setEditor({ record: null })}
           disabled={status.loading || Boolean(status.error)}
         >
           + New {resource.singular}
-        </button>
+        </button>}
       </div>
 
       {notice && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{notice}</div>}
@@ -218,7 +231,7 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
                     {resource.columns.map((column) => (
                       <th key={column.key}>{column.label}</th>
                     ))}
-                    <th className="text-right">Actions</th>
+                    {(canEdit || canDelete) && <th className="text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -233,15 +246,15 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
                           {renderCell(column, row, ctx)}
                         </td>
                       ))}
-                      <td className="whitespace-nowrap text-right">
-                        <button
+                      {(canEdit || canDelete) && <td className="whitespace-nowrap text-right">
+                        {canEdit && <button
                           type="button"
                           className="rounded-md px-2 py-1 text-sm font-semibold text-sky-800 transition hover:bg-sky-50"
                           onClick={() => setEditor({ record: row })}
                         >
                           Edit
-                        </button>
-                        <button
+                        </button>}
+                        {canDelete && <button
                           type="button"
                           className="rounded-md px-2 py-1 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
                           onClick={() => {
@@ -250,8 +263,8 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
                           }}
                         >
                           Delete
-                        </button>
-                      </td>
+                        </button>}
+                      </td>}
                     </tr>
                   ))}
                 </tbody>
@@ -268,7 +281,7 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
           onClose={() => setEditor(null)}
         >
           <ResourceForm
-            resource={resource}
+            resource={formResource}
             record={editor.record}
             rows={rows}
             lookups={lookups}
@@ -279,10 +292,11 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
       )}
 
       {toDelete && (
-        <Modal title={`Delete ${resource.singular}?`} onClose={() => setToDelete(null)}>
+        <Modal title={resource.key === "appointments" ? "Cancel appointment?" : `Delete ${resource.singular}?`} onClose={() => setToDelete(null)}>
           <p className="text-sm leading-6 text-slate-600">
-            This will permanently delete <strong>{resource.deleteLabel(toDelete)}</strong>.
-            This can’t be undone.
+            {resource.key === "appointments"
+              ? <>This will cancel <strong>{resource.deleteLabel(toDelete)}</strong> and keep its history.</>
+              : <>This will permanently delete <strong>{resource.deleteLabel(toDelete)}</strong>. This can’t be undone.</>}
           </p>
 
           {deleteError && (
@@ -306,7 +320,7 @@ export default function ResourcePage({ resource, startWithNew = false, onStartHa
               onClick={confirmDelete}
               disabled={deleting}
             >
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting ? "Saving…" : resource.key === "appointments" ? "Cancel appointment" : "Delete"}
             </button>
           </div>
         </Modal>

@@ -1,6 +1,16 @@
 
 const Patient = require("../models/patientModel");
 
+const getAssignableDoctors = (req, res) => {
+  Patient.getAssignableDoctors((err, results) => {
+    if (err) {
+      console.error("Error fetching assignable doctors:", err.code || "database error");
+      return res.status(500).json({ message: "Failed to fetch active doctors" });
+    }
+    return res.status(200).json(results);
+  });
+};
+
 // Register a new patient
 const createPatient = (req, res) => {
   const patient = req.body || {};
@@ -31,6 +41,16 @@ const createPatient = (req, res) => {
     });
   }
 
+  if (
+    patient.doctor_user_id !== undefined &&
+    patient.doctor_user_id !== null &&
+    patient.doctor_user_id !== "" &&
+    !/^[1-9]\d*$/.test(String(patient.doctor_user_id))
+  ) {
+    return res.status(400).json({ message: "Select a valid doctor" });
+  }
+  if (patient.doctor_user_id === "") patient.doctor_user_id = null;
+
   // Validate gender
   const allowedGenders = ["Male", "Female", "Other"];
 
@@ -53,14 +73,17 @@ const createPatient = (req, res) => {
     });
   }
 
-  Patient.create(patient, (err, result) => {
+  Patient.create(patient, req.user, (err, result) => {
     if (err) {
-      console.error("Error creating patient:", err);
+      console.error("Error creating patient:", err.code || "database error");
 
       if (err.code === "ER_DUP_ENTRY") {
         return res.status(409).json({
           message: "Patient number or another unique field already exists"
         });
+      }
+      if (err.code === "INVALID_DOCTOR_ASSIGNMENT") {
+        return res.status(400).json({ message: err.message });
       }
 
       return res.status(500).json({
@@ -77,9 +100,9 @@ const createPatient = (req, res) => {
 
 // Get all patients
 const getAllPatients = (req, res) => {
-  Patient.getAll((err, results) => {
+  Patient.getAll(req.user, (err, results) => {
     if (err) {
-      console.error("Error fetching patients:", err);
+      console.error("Error fetching patients:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to fetch patients"
@@ -100,9 +123,9 @@ const getPatientById = (req, res) => {
     });
   }
 
-  Patient.getById(patientId, (err, result) => {
+  Patient.getById(patientId, req.user, (err, result) => {
     if (err) {
-      console.error("Error fetching patient:", err);
+      console.error("Error fetching patient:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to fetch patient"
@@ -124,6 +147,17 @@ const updatePatient = (req, res) => {
   const patientId = req.params.id;
   const patient = req.body || {};
 
+  if (req.user.role === "receptionist") {
+    return Patient.getById(patientId, req.user, (err, rows) => {
+      if (err) return res.status(500).json({ message: "Failed to validate patient access" });
+      if (!rows.length) return res.status(404).json({ message: "Patient not found" });
+      return performPatientUpdate(patientId, patient, res);
+    });
+  }
+  return performPatientUpdate(patientId, patient, res);
+};
+
+function performPatientUpdate(patientId, patient, res) {
   if (!/^\d+$/.test(patientId) || Number(patientId) < 1) {
     return res.status(400).json({
       message: "Invalid patient ID"
@@ -177,7 +211,7 @@ const updatePatient = (req, res) => {
 
   Patient.update(patientId, patient, (err, result) => {
     if (err) {
-      console.error("Error updating patient:", err);
+      console.error("Error updating patient:", err.code || "database error");
 
       if (err.code === "ER_DUP_ENTRY") {
         return res.status(409).json({
@@ -200,12 +234,23 @@ const updatePatient = (req, res) => {
       message: "Patient updated successfully"
     });
   });
-};
+}
 
 // Delete patient
 const deletePatient = (req, res) => {
   const patientId = req.params.id;
 
+  if (req.user.role === "receptionist") {
+    return Patient.getById(patientId, req.user, (err, rows) => {
+      if (err) return res.status(500).json({ message: "Failed to validate patient access" });
+      if (!rows.length) return res.status(404).json({ message: "Patient not found" });
+      return performPatientDelete(patientId, res);
+    });
+  }
+  return performPatientDelete(patientId, res);
+};
+
+function performPatientDelete(patientId, res) {
   if (!/^\d+$/.test(patientId) || Number(patientId) < 1) {
     return res.status(400).json({
       message: "Invalid patient ID"
@@ -214,7 +259,7 @@ const deletePatient = (req, res) => {
 
   Patient.delete(patientId, (err, result) => {
     if (err) {
-      console.error("Error deleting patient:", err);
+      console.error("Error deleting patient:", err.code || "database error");
 
       if (err.code === "ER_ROW_IS_REFERENCED_2") {
         return res.status(409).json({
@@ -238,9 +283,10 @@ const deletePatient = (req, res) => {
       message: "Patient deleted successfully"
     });
   });
-};
+}
 
 module.exports = {
+  getAssignableDoctors,
   createPatient,
   getAllPatients,
   getPatientById,

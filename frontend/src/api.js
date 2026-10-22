@@ -49,8 +49,10 @@ async function request(path, options = {}) {
   try {
     response = await fetch(`${BASE}${path}`, {
       ...options,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        "X-CarePoint-Request": "1",
         ...options.headers,
       },
     });
@@ -80,12 +82,14 @@ async function request(path, options = {}) {
 
     const friendlyText = friendly(message, data?.error);
 
-    throw new Error(
+    const error = new Error(
       friendlyText ||
         `${message}${missing ? `: ${missing}` : ""}${
           data?.error ? ` (${data.error})` : ""
         }`
     );
+    error.status = response.status;
+    throw error;
   }
 
   return data;
@@ -93,6 +97,13 @@ async function request(path, options = {}) {
 
 // Public API methods.
 export const api = {
+  login: (email, password) =>
+    request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  logout: () => request("/auth/logout", { method: "POST" }),
+  me: () => request("/auth/me"),
   // Get all records.
   list: (endpoint) => request(`/${endpoint}`),
 
@@ -113,10 +124,23 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
+  patch: (endpoint, idOrBody, maybeBody) => {
+    const hasExplicitId = maybeBody !== undefined;
+    const path = hasExplicitId
+      ? `/${endpoint}/${encodeURIComponent(idOrBody)}`
+      : `/${endpoint}`;
+    const payload = hasExplicitId ? maybeBody : idOrBody;
+    return request(path, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
 
   // Delete a record.
   remove: (endpoint, id) =>
     request(`/${endpoint}/${encodeURIComponent(id)}`, {
       method: "DELETE",
     }),
+  markNotificationRead: (id) =>
+    request(`/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" }),
 };

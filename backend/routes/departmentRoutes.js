@@ -1,6 +1,8 @@
 const express = require("express");
 
 const router = express.Router();
+const { requireRoles } = require("../middleware/auth");
+const auditResponse = require("../middleware/auditResponse");
 
 const {
   createDepartment,
@@ -11,18 +13,18 @@ const {
 } = require("../controllers/departmentController");
 
 // Create a department
-router.post("/", createDepartment);
+router.post("/", requireRoles("admin"), auditResponse("department.created", "department"), createDepartment);
 
 // Get all departments
-router.get("/", getAllDepartments);
+router.get("/", requireRoles("admin", "receptionist"), getAllDepartments);
 
 // Get one department by ID
-router.get("/:id", getDepartmentById);
+router.get("/:id", requireRoles("admin", "receptionist"), getDepartmentById);
 
 // Update a department
-router.put("/:id", updateDepartment);
+router.put("/:id", requireRoles("admin"), auditResponse("department.updated", "department"), updateDepartment);
 
 // Delete a department
-router.delete("/:id", deleteDepartment);
+router.delete("/:id", requireRoles("admin"), auditResponse("department.deleted", "department"), deleteDepartment);
 
 module.exports = router;

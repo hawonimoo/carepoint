@@ -35,7 +35,13 @@ const Medicine = {
   },
 
   // Get all medicines
-  getAll: (callback) => {
+  getAll: (user, callback) => {
+    if (user.role === "doctor") {
+      return db.query(
+        "SELECT id, medicine_name, category, status FROM medicines WHERE status = 'Available' ORDER BY medicine_name",
+        callback
+      );
+    }
     const sql = `
       SELECT *
       FROM medicines

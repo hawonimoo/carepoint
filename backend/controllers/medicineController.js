@@ -6,11 +6,10 @@ const createMedicine = (req, res) => {
 
   Medicine.create(medicine, (err, result) => {
     if (err) {
-      console.error("Error creating medicine:", err);
+      console.error("Error creating medicine:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to create medicine",
-        error: err.message
       });
     }
 
@@ -23,13 +22,12 @@ const createMedicine = (req, res) => {
 
 // Get all medicines
 const getAllMedicines = (req, res) => {
-  Medicine.getAll((err, results) => {
+  Medicine.getAll(req.user, (err, results) => {
     if (err) {
-      console.error("Error fetching medicines:", err);
+      console.error("Error fetching medicines:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to fetch medicines",
-        error: err.message
       });
     }
 
@@ -43,11 +41,10 @@ const getMedicineById = (req, res) => {
 
   Medicine.getById(medicineId, (err, result) => {
     if (err) {
-      console.error("Error fetching medicine:", err);
+      console.error("Error fetching medicine:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to fetch medicine",
-        error: err.message
       });
     }
 
@@ -68,11 +65,10 @@ const updateMedicine = (req, res) => {
 
   Medicine.update(medicineId, medicine, (err, result) => {
     if (err) {
-      console.error("Error updating medicine:", err);
+      console.error("Error updating medicine:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to update medicine",
-        error: err.message
       });
     }
 
@@ -94,11 +90,10 @@ const deleteMedicine = (req, res) => {
 
   Medicine.delete(medicineId, (err, result) => {
     if (err) {
-      console.error("Error deleting medicine:", err);
+      console.error("Error deleting medicine:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to delete medicine",
-        error: err.message
       });
     }
 

@@ -70,45 +70,19 @@ export const resources = [
       { name: "gender", label: "Gender", type: "select", options: GENDERS, required: true },
       { name: "date_of_birth", label: "Date of Birth", type: "date", required: true },
       { name: "phone", label: "Phone", type: "tel", required: true },
+      {
+        name: "doctor_user_id",
+        label: "Assign to Doctor",
+        type: "lookup",
+        lookup: "doctors",
+        lookupEndpoint: "patients/doctors",
+        createOnly: true,
+        hint: () => "Optional. The selected doctor will be assigned to this patient and can access the patient in Consultations.",
+      },
       { name: "email", label: "Email", type: "email" },
       { name: "address", label: "Address", type: "text", span: 2 },
       { name: "emergency_contact", label: "Emergency Contact", type: "text" },
       { name: "emergency_phone", label: "Emergency Phone", type: "tel" },
-    ],
-    deleteLabel: (r) => r.full_name,
-  },
-
-  // ───────────────────────── Doctors ─────────────────────────
-  {
-    key: "doctors",
-    endpoint: "doctors",
-    title: "Doctors",
-    singular: "Doctor",
-    description: "Manage doctors, specializations and consultation fees.",
-    columns: [
-      { key: "doctor_number", label: "Doctor No." },
-      { key: "full_name", label: "Full Name" },
-      { key: "specialization", label: "Specialization" },
-      { key: "department", label: "Department" },
-      { key: "phone", label: "Phone" },
-      { key: "consultation_fee", label: "Fee", type: "money" },
-      { key: "status", label: "Status", type: "badge" },
-    ],
-    fields: [
-      { name: "doctor_number", label: "Doctor No.", type: "text", required: true, code: "DOC" },
-      { name: "full_name", label: "Full Name", type: "text", required: true },
-      { name: "gender", label: "Gender", type: "select", options: GENDERS },
-      { name: "specialization", label: "Specialization", type: "text" },
-      { name: "phone", label: "Phone", type: "tel" },
-      { name: "email", label: "Email", type: "email" },
-      {
-        name: "department",
-        label: "Department",
-        type: "suggest",
-        optionsFrom: { endpoint: "departments", value: (r) => r.department_name },
-      },
-      { name: "consultation_fee", label: "Consultation Fee", type: "number", min: 0, step: "0.01" },
-      { name: "status", label: "Status", type: "suggest", options: ["Active", "Inactive"], default: "Active" },
     ],
     deleteLabel: (r) => r.full_name,
   },
@@ -143,7 +117,7 @@ export const resources = [
     columns: [
       { key: "appointment_number", label: "Appt. No." },
       { key: "patient_name", label: "Patient" },
-      { key: "doctor_name", label: "Doctor" },
+      { key: "doctor_name", label: "Assigned Clinician" },
       { key: "appointment_date", label: "Date", type: "date" },
       { key: "appointment_time", label: "Time", type: "time" },
       { key: "reason", label: "Reason", truncate: true },
@@ -153,7 +127,7 @@ export const resources = [
       { name: "appointment_number", label: "Appointment No.", type: "text", required: true, code: "APT" },
       { name: "status", label: "Status", type: "suggest", options: ["Scheduled", "Completed", "Cancelled"], default: "Scheduled" },
       { name: "patient_id", label: "Patient", type: "lookup", lookup: "patients", required: true },
-      { name: "doctor_id", label: "Doctor", type: "lookup", lookup: "doctors", required: true },
+      { name: "doctor_id", label: "Assigned Clinician", type: "lookup", lookup: "doctors", required: true },
       { name: "appointment_date", label: "Date", type: "date", required: true, defaultToday: true },
       { name: "appointment_time", label: "Time", type: "time", required: true },
       { name: "reason", label: "Reason for Visit", type: "text", span: 2 },
@@ -172,14 +146,14 @@ export const resources = [
     columns: [
       { key: "record_number", label: "Record No." },
       { key: "patient_name", label: "Patient" },
-      { key: "doctor_name", label: "Doctor" },
+      { key: "doctor_name", label: "Prescribing Clinician" },
       { key: "diagnosis", label: "Diagnosis", truncate: true },
       { key: "follow_up_date", label: "Follow-up", type: "date" },
     ],
     fields: [
       { name: "record_number", label: "Record No.", type: "text", required: true, code: "REC" },
       { name: "patient_id", label: "Patient", type: "lookup", lookup: "patients", required: true },
-      { name: "doctor_id", label: "Doctor", type: "lookup", lookup: "doctors", required: true },
+      { name: "doctor_id", label: "Prescribing Clinician", type: "lookup", lookup: "doctors", required: true },
       {
         name: "appointment_id",
         label: "Appointment (optional)",
@@ -409,7 +383,7 @@ export function lookupEndpointsFor(resource) {
   const endpoints = new Set();
 
   for (const field of resource.fields) {
-    if (field.lookup) endpoints.add(field.lookup);
+    if (field.lookup) endpoints.add(field.lookupEndpoint || field.lookup);
     if (field.optionsFrom) endpoints.add(field.optionsFrom.endpoint);
   }
   for (const column of resource.columns) {

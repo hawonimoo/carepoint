@@ -1,103 +1,133 @@
-import { useCallback, useEffect, useState } from "react";
-import Dashboard from "./pages/Dashboard";
+import { useEffect, useMemo } from "react";
+import { ROLE_PAGES, ROLE_TITLES, canWrite } from "./auth";
+import { resources } from "./config/resources";
+import ClinicLayout from "./components/ClinicLayout";
 import ResourcePage from "./components/ResourcePage";
-import { resourceByKey, resources } from "./config/resources";
+import StaffPage from "./components/StaffPage";
+import Consultation from "./pages/Consultation";
+import PrescriptionsPage from "./components/PrescriptionsPage";
+import LaboratoryOrdersPage from "./components/LaboratoryOrdersPage";
+import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
+import useHashRoute from "./app/useHashRoute";
+import useStaffSession from "./app/useStaffSession";
 
-// "#patients"      -> { key: "patients" }
-// "#patients/new"  -> { key: "patients", action: "new" }  (opens the add form)
-function parseHash() {
-  const [key, action] = window.location.hash.replace(/^#\/?/, "").split("/");
-  return { key: key || "dashboard", action };
-}
+const EMPTY_PAGES = [];
+const PAGE_TITLES = {
+  dashboard: "Dashboard",
+  staff: "Staff",
+  consultations: "Consultations",
+  prescriptions: "Prescriptions",
+  "laboratory-orders": "Laboratory",
+};
 
-function useHashRoute() {
-  const [route, setRoute] = useState(parseHash);
-
-  useEffect(() => {
-    const onChange = () => setRoute(parseHash());
-    window.addEventListener("hashchange", onChange);
-    return () => window.removeEventListener("hashchange", onChange);
-  }, []);
-
-  return route;
-}
-
-const NAV = [{ key: "dashboard", title: "Dashboard" }, ...resources];
-
-function App() {
-  const route = useHashRoute();
-  const resource = resourceByKey[route.key];
-  const activeKey = resource ? route.key : "dashboard";
-
-  // once the add form is open, turn "#patients/new" back into "#patients"
-  // (replaceState doesn't fire hashchange, so nothing re-renders)
-  const clearAction = useCallback(() => {
-    window.history.replaceState(null, "", `#${route.key}`);
-  }, [route.key]);
-
+function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-[#f5f7f6] text-slate-800 md:flex md:h-screen md:overflow-hidden">
-      <aside className="border-b border-sky-950 bg-sky-950 text-white md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:border-b-0">
-        <div className="flex items-center gap-3 px-5 py-5 md:px-7 md:pt-8">
-          <span className="grid size-10 place-items-center rounded-xl bg-sky-400 text-lg font-bold text-sky-950">C</span>
-          <div>
-            <h2 className="font-[Manrope] text-lg font-extrabold tracking-normal">CarePoint</h2>
-            <p className="mt-0.5 text-xs text-sky-200">Clinic Management</p>
-          </div>
-        </div>
-
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:px-4 md:py-6">
-          {NAV.map((item) => (
-            <a
-              key={item.key}
-              href={`#${item.key}`}
-              className={`shrink-0 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors md:w-full ${
-                item.key === activeKey
-                  ? "bg-sky-800 text-white"
-                  : "text-sky-100 hover:bg-sky-900 hover:text-white"
-              }`}
-            >
-              {item.title}
-            </a>
-          ))}
-        </nav>
-      </aside>
-
-      <main className="flex min-w-0 flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:px-10 md:h-screen md:overflow-y-auto">
-        <header className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
-          <div>
-            <h1 className="font-[Manrope] text-2xl font-bold tracking-normal text-slate-900">
-              {resource ? resource.title : "Dashboard"}
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {resource
-                ? resource.description
-                : "Welcome to your Clinic Management System."}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-            <span className="grid size-7 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">A</span>
-            Administrator
-          </div>
-        </header>
-
-        {resource ? (
-          <ResourcePage
-            key={resource.key}
-            resource={resource}
-            startWithNew={route.action === "new"}
-            onStartHandled={clearAction}
-          />
-        ) : (
-          <Dashboard />
-        )}
-
-        <footer className="mt-auto border-t border-slate-200 pt-5 text-xs text-slate-400">
-          CarePoint Clinic Management System
-        </footer>
-      </main>
-    </div>
+    <main className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto mb-4 grid size-12 place-items-center rounded-xl bg-teal-50 text-xl font-bold text-teal-700">C</div>
+        <h2 className="font-semibold text-slate-800">CarePoint</h2>
+        <p className="mt-2 text-sm text-slate-500">Checking your staff session...</p>
+      </div>
+    </main>
   );
 }
 
-export default App;
+export default function App() {
+  const route = useHashRoute();
+  const { auth, busy, login, logout } = useStaffSession();
+  const role = auth.user?.role;
+  const pageKeys = ROLE_PAGES[role] || EMPTY_PAGES;
+  const allowedResources = useMemo(
+    () => resources.filter((resource) => pageKeys.includes(resource.key)),
+    [pageKeys]
+  );
+  const resource = allowedResources.find((entry) => entry.key === route.key);
+  const isStaffPage = route.key === "staff" && pageKeys.includes("staff");
+  const isConsultationPage = route.key === "consultations" && pageKeys.includes("consultations");
+  const isPrescriptionsPage = route.key === "prescriptions" && pageKeys.includes("prescriptions");
+  const isLaboratoryPage = route.key === "laboratory-orders" && pageKeys.includes("laboratory-orders");
+
+  useEffect(() => {
+    if (!auth.loading && auth.user && route.key !== "dashboard" &&
+        !pageKeys.includes(route.key)) {
+      window.location.hash = "#dashboard";
+    }
+  }, [auth.loading, auth.user, pageKeys, route.key]);
+
+  async function handleLogin(email, password) {
+    if (await login(email, password)) window.location.hash = "#dashboard";
+  }
+
+  async function handleLogout() {
+    if (await logout()) window.location.hash = "";
+  }
+
+  if (auth.loading) return <LoadingScreen />;
+  if (!auth.user) return <Login onLogin={handleLogin} error={auth.error} busy={busy} />;
+
+  const navigation = [
+    { key: "dashboard", title: "Dashboard", icon: "⌂" },
+    ...allowedResources.map(({ key, title }) => ({
+      key,
+      title,
+      icon: key === "patients" ? "♡" : "•",
+    })),
+    ...(pageKeys.includes("consultations")
+      ? [{ key: "consultations", title: "Consultations", icon: "✚" }]
+      : []),
+    ...(pageKeys.includes("prescriptions")
+      ? [{ key: "prescriptions", title: "Prescriptions", icon: "Rx" }]
+      : []),
+    ...(pageKeys.includes("laboratory-orders")
+      ? [{ key: "laboratory-orders", title: "Laboratory", icon: "⚗" }]
+      : []),
+    ...(pageKeys.includes("staff")
+      ? [{ key: "staff", title: "Staff", icon: "♙" }]
+      : []),
+  ];
+  const activeKey = resource ? route.key : isStaffPage ? "staff" : isConsultationPage ? "consultations" : isPrescriptionsPage ? "prescriptions" : isLaboratoryPage ? "laboratory-orders" : "dashboard";
+  const title = resource?.title || PAGE_TITLES[activeKey];
+  const roleTitle = ROLE_TITLES[role] || role;
+
+  let page;
+  if (resource) {
+    page = (
+      <ResourcePage
+        key={resource.key}
+        resource={resource}
+        role={role}
+        canCreate={canWrite(role, resource.key, "create")}
+      />
+    );
+  } else if (isStaffPage) {
+    page = <StaffPage />;
+  } else if (isConsultationPage) {
+    page = <Consultation />;
+  } else if (isPrescriptionsPage) {
+    page = <PrescriptionsPage role={role} />;
+  } else if (isLaboratoryPage) {
+    page = <LaboratoryOrdersPage role={role} />;
+  } else if (route.key === "dashboard") {
+    page = (
+      <Dashboard
+        pages={pageKeys}
+        onNavigate={(key) => { window.location.hash = `#${key}`; }}
+      />
+    );
+  }
+
+  return (
+    <ClinicLayout
+      user={auth.user}
+      roleTitle={roleTitle}
+      title={title}
+      navigation={navigation}
+      activeKey={activeKey}
+      error={auth.error}
+      onLogout={handleLogout}
+    >
+      {page}
+    </ClinicLayout>
+  );
+}

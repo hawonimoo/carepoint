@@ -21,6 +21,7 @@ function buildInitialValues(resource, record, rows, ctx) {
   const values = {};
 
   for (const field of resource.fields) {
+    if (record && field.createOnly) continue;
     if (record) {
       const raw = record[field.name];
 
@@ -41,10 +42,11 @@ function buildInitialValues(resource, record, rows, ctx) {
 
 // Empty optional values go to the database as NULL (not "" or 0),
 // which is what DATE columns, foreign keys and UNIQUE columns expect.
-function buildPayload(resource, values) {
+function buildPayload(resource, values, isEdit) {
   const payload = {};
 
   for (const field of resource.fields) {
+    if (isEdit && field.createOnly) continue;
     const raw = values[field.name];
 
     if (isEmpty(raw) || (typeof raw === "string" && raw.trim() === "")) {
@@ -119,7 +121,7 @@ function FieldInput({ field, value, onChange, values, ctx }) {
 
   if (field.type === "lookup") {
     const label = lookupLabels[field.lookup];
-    const options = (ctx.lookups[field.lookup] || []).filter(
+    const options = (ctx.lookups[field.lookupEndpoint || field.lookup] || []).filter(
       (row) => !field.filter || field.filter(row, { values, record: ctx.record })
     );
 
@@ -199,6 +201,7 @@ export default function ResourceForm({
 
     const missing = resource.fields.filter(
       (field) =>
+        !(isEdit && field.createOnly) &&
         field.required &&
         field.type !== "readonly" &&
         field.type !== "hidden" &&
@@ -219,7 +222,7 @@ export default function ResourceForm({
     setSaving(true);
 
     try {
-      const payload = buildPayload(resource, values);
+      const payload = buildPayload(resource, values, isEdit);
 
       if (isEdit) {
         await api.update(resource.endpoint, record.id, payload);
@@ -238,7 +241,7 @@ export default function ResourceForm({
     <form onSubmit={handleSubmit} noValidate>
       <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
         {resource.fields
-          .filter((field) => field.type !== "hidden")
+          .filter((field) => field.type !== "hidden" && !(isEdit && field.createOnly))
           .map((field) => (
             <div
               key={field.name}

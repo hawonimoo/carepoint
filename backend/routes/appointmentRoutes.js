@@ -1,6 +1,8 @@
 const express = require("express");
 
 const router = express.Router();
+const { requireRoles } = require("../middleware/auth");
+const auditResponse = require("../middleware/auditResponse");
 
 const {
   createAppointment,
@@ -11,18 +13,18 @@ const {
 } = require("../controllers/appointmentController");
 
 // Create an appointment
-router.post("/", createAppointment);
+router.post("/", requireRoles("admin", "receptionist"), createAppointment);
 
 // Get all appointments
-router.get("/", getAllAppointments);
+router.get("/", requireRoles("admin", "receptionist", "doctor", "nurse"), getAllAppointments);
 
 // Get one appointment by ID
-router.get("/:id", getAppointmentById);
+router.get("/:id", requireRoles("admin", "receptionist", "doctor", "nurse"), getAppointmentById);
 
 // Update an appointment
-router.put("/:id", updateAppointment);
+router.put("/:id", requireRoles("admin", "receptionist"), updateAppointment);
 
 // Delete an appointment
-router.delete("/:id", deleteAppointment);
+router.delete("/:id", requireRoles("admin", "receptionist"), deleteAppointment);
 
 module.exports = router;

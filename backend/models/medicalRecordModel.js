@@ -37,7 +37,9 @@ const MedicalRecord = {
   },
 
   // Get all medical records
-  getAll: (callback) => {
+  getAll: (user, callback) => {
+    const scope = user.role === "doctor" ? "WHERE medical_records.doctor_id = ?" : "";
+    const values = user.role === "doctor" ? [user.doctorId || 0] : [];
     const sql = `
       SELECT
         medical_records.*,
@@ -50,14 +52,17 @@ const MedicalRecord = {
         ON medical_records.doctor_id = doctors.id
       LEFT JOIN appointments
         ON medical_records.appointment_id = appointments.id
+      ${scope}
       ORDER BY medical_records.id DESC
     `;
 
-    db.query(sql, callback);
+    db.query(sql, values, callback);
   },
 
   // Get medical record by ID
-  getById: (id, callback) => {
+  getById: (id, user, callback) => {
+    const scope = user.role === "doctor" ? "AND medical_records.doctor_id = ?" : "";
+    const values = user.role === "doctor" ? [id, user.doctorId || 0] : [id];
     const sql = `
       SELECT
         medical_records.*,
@@ -70,14 +75,15 @@ const MedicalRecord = {
         ON medical_records.doctor_id = doctors.id
       LEFT JOIN appointments
         ON medical_records.appointment_id = appointments.id
-      WHERE medical_records.id = ?
+      WHERE medical_records.id = ? ${scope}
     `;
 
-    db.query(sql, [id], callback);
+    db.query(sql, values, callback);
   },
 
   // Update medical record
-  update: (id, record, callback) => {
+  update: (id, record, user, callback) => {
+    const scope = user.role === "doctor" ? " AND doctor_id = ?" : "";
     const sql = `
       UPDATE medical_records
       SET record_number = ?,
@@ -90,7 +96,7 @@ const MedicalRecord = {
           prescription = ?,
           notes = ?,
           follow_up_date = ?
-      WHERE id = ?
+      WHERE id = ?${scope}
     `;
 
     const values = [
@@ -104,7 +110,8 @@ const MedicalRecord = {
       record.prescription,
       record.notes,
       record.follow_up_date,
-      id
+      id,
+      ...(user.role === "doctor" ? [user.doctorId || 0] : [])
     ];
 
     db.query(sql, values, callback);

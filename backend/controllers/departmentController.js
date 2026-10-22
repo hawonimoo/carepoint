@@ -6,11 +6,10 @@ const createDepartment = (req, res) => {
 
   Department.create(department, (err, result) => {
     if (err) {
-      console.error("Error creating department:", err);
+      console.error("Error creating department:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to create department",
-        error: err.message
       });
     }
 
@@ -25,11 +24,10 @@ const createDepartment = (req, res) => {
 const getAllDepartments = (req, res) => {
   Department.getAll((err, results) => {
     if (err) {
-      console.error("Error fetching departments:", err);
+      console.error("Error fetching departments:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to fetch departments",
-        error: err.message
       });
     }
 
@@ -43,11 +41,10 @@ const getDepartmentById = (req, res) => {
 
   Department.getById(departmentId, (err, result) => {
     if (err) {
-      console.error("Error fetching department:", err);
+      console.error("Error fetching department:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to fetch department",
-        error: err.message
       });
     }
 
@@ -68,11 +65,10 @@ const updateDepartment = (req, res) => {
 
   Department.update(departmentId, department, (err, result) => {
     if (err) {
-      console.error("Error updating department:", err);
+      console.error("Error updating department:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to update department",
-        error: err.message
       });
     }
 
@@ -94,11 +90,10 @@ const deleteDepartment = (req, res) => {
 
   Department.delete(departmentId, (err, result) => {
     if (err) {
-      console.error("Error deleting department:", err);
+      console.error("Error deleting department:", err.code || "database error");
 
       return res.status(500).json({
         message: "Failed to delete department",
-        error: err.message
       });
     }
 

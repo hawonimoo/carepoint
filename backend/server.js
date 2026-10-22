@@ -1,26 +1,40 @@
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 const db = require("./config/db");
+const { requireAuth } = require("./middleware/auth");
+const csrfProtection = require("./middleware/csrfProtection");
 
-// Import routes
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const staffRoutes = require("./routes/staffRoutes");
 const patientRoutes = require("./routes/patientRoutes");
-const doctorRoutes = require("./routes/doctorRoutes");
-const departmentRoutes = require("./routes/departmentRoutes");
-const appointmentRoutes = require("./routes/appointmentRoutes");
-const medicalRecordRoutes = require("./routes/medicalRecordRoutes");
+const consultationRoutes = require("./routes/consultation.routes");
+const prescriptionRoutes = require("./routes/prescriptionRoutes");
+const laboratoryOrderRoutes = require("./routes/laboratoryOrder.routes");
 const medicineRoutes = require("./routes/medicineRoutes");
-const laboratoryTestRoutes = require("./routes/laboratoryTestRoutes");
-const invoiceRoutes = require("./routes/invoiceRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
 
 // Initialize Express
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+const configuredFrontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+const localDevelopmentOrigin = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):(?:517[3-9]|51[89]\d)$/;
+app.use(cors({
+    origin: (origin, callback) => {
+        if (
+            !origin ||
+            origin === configuredFrontendOrigin ||
+            (process.env.NODE_ENV !== "production" && localDevelopmentOrigin.test(origin))
+        ) {
+            return callback(null, true);
+        }
+        return callback(null, false);
+    },
+    credentials: true,
+}));
+app.use(express.json({ limit: "1mb" }));
 
 // Test route
 app.get("/", (req, res) => {
@@ -28,15 +42,22 @@ app.get("/", (req, res) => {
 });
 
 // API routes
+app.use("/api/auth", authRoutes);
+app.use("/api", csrfProtection);
+app.use("/api", requireAuth);
+app.use("/api", (req, res, next) => {
+    if (req.user.role === "other_staff") {
+        return res.status(403).json({ message: "This staff account has no clinic API permissions assigned" });
+    }
+    return next();
+});
+app.use("/api/users", userRoutes);
+app.use("/api/staff", staffRoutes);
 app.use("/api/patients", patientRoutes);
-app.use("/api/doctors", doctorRoutes);
-app.use("/api/departments", departmentRoutes);
-app.use("/api/appointments", appointmentRoutes);
-app.use("/api/medical-records", medicalRecordRoutes);
+app.use("/api/consultations", consultationRoutes);
+app.use("/api/prescriptions", prescriptionRoutes);
+app.use("/api/laboratory-orders", laboratoryOrderRoutes);
 app.use("/api/medicines", medicineRoutes);
-app.use("/api/laboratory-tests", laboratoryTestRoutes);
-app.use("/api/invoices", invoiceRoutes);
-app.use("/api/payments", paymentRoutes);
 
 // Unknown API route -> JSON instead of an HTML error page
 app.use((req, res) => {
@@ -49,24 +70,28 @@ app.use((err, req, res, next) => {
         return res.status(400).json({ message: "Request body is not valid JSON" });
     }
 
-    console.error("Unhandled error:", err);
+    console.error("Unhandled request error:", err.code || err.type || "internal error");
     res.status(500).json({ message: "Something went wrong on the server" });
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
+if (require.main === module) {
+    const PORT = process.env.PORT || 5000;
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+        console.error("JWT_SECRET must be configured with at least 32 characters before running the API.");
+        process.exit(1);
+    }
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-
-    // Check the database once at startup so problems show up immediately
-    db.getConnection((err, connection) => {
-        if (err) {
-            console.error("Database connection failed:", err.message);
-            return;
-        }
-
-        console.log("MySQL Connected Successfully");
-        connection.release();
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+        db.getConnection((err, connection) => {
+            if (err) {
+                console.error("Database connection failed:", err.message);
+                return;
+            }
+            console.log("MySQL Connected Successfully");
+            connection.release();
+        });
     });
-});
+}
+
+module.exports = app;
